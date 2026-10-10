@@ -166,6 +166,8 @@ This project demonstrates practical concepts in:
 - HTTP endpoints and browser-based monitoring
 - Basic infrastructure observability
 
-## Author
+## 👨‍💻 Author
 
-Tsukishima
+**Tsukishima07**
+
+GitHub: [@tsukishima07](https://github.com/tsukishima07)
