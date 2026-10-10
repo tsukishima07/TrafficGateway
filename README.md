@@ -166,6 +166,6 @@ This project demonstrates practical concepts in:
 - HTTP endpoints and browser-based monitoring
 - Basic infrastructure observability
 
-## License
+## Author
 
-No license has been added yet. Add a license file if you want to explicitly permit reuse of this project.
+Tsukishima
