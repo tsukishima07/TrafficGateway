@@ -1,0 +1,372 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traffic Gateway | Monitor</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #0b1020;
+      color: #e8ecf7;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 24px 5%;
+      border-bottom: 1px solid #252d42;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 23px;
+      margin: 0;
+    }
+
+    h1 span {
+      color: #65e6b4;
+    }
+
+    .sub {
+      color: #8995b0;
+      font-size: 13px;
+      margin-top: 7px;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .status {
+      color: #65e6b4;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(
+        auto-fit,
+        minmax(190px, 1fr)
+      );
+      gap: 16px;
+      margin-bottom: 25px;
+    }
+
+    .card,
+    .panel {
+      background: #131b2e;
+      border: 1px solid #263149;
+      border-radius: 13px;
+      padding: 22px;
+    }
+
+    .label {
+      color: #96a2bb;
+      font-size: 14px;
+    }
+
+    .value {
+      font-size: 30px;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+
+    .panel {
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-size: 18px;
+      margin: 0 0 20px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 620px;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th,
+    td {
+      padding: 14px 10px;
+      border-bottom: 1px solid #263149;
+      font-size: 13px;
+    }
+
+    th {
+      color: #96a2bb;
+      font-weight: normal;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+    }
+
+    .up {
+      background: #123b31;
+      color: #65e6b4;
+    }
+
+    .down {
+      background: #45222c;
+      color: #ff8d9e;
+    }
+
+    #logs {
+      font: 13px/2 monospace;
+      color: #aebbd2;
+      overflow-wrap: anywhere;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .empty {
+      color: #8995b0;
+    }
+
+    footer {
+      color: #7f8ba4;
+      font-size: 12px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    @media (max-width: 500px) {
+      header {
+        padding: 18px;
+      }
+
+      h1 {
+        font-size: 19px;
+      }
+
+      .sub {
+        max-width: 230px;
+      }
+
+      main {
+        padding: 0 12px;
+      }
+
+      .card,
+      .panel {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div>
+      <h1>⚡ Traffic<span>Gateway</span></h1>
+      <div class="sub">
+        TCP Load Balancer &amp; Infrastructure Monitor
+      </div>
+    </div>
+
+    <div class="status">
+      ● <span id="connection">Connecting...</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="cards">
+      <div class="card">
+        <div class="label">Total Connections</div>
+        <div class="value" id="total">0</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Active Connections</div>
+        <div class="value" id="active">0</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Healthy Backends</div>
+        <div class="value" id="healthy">0 / 0</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Bytes Transferred</div>
+        <div class="value" id="bytes">0 B</div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h2>Backend Servers</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>SERVER</th>
+              <th>ADDRESS</th>
+              <th>STATUS</th>
+              <th>CONNECTIONS</th>
+              <th>BYTES</th>
+            </tr>
+          </thead>
+
+          <tbody id="servers">
+            <tr>
+              <td colspan="5">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Gateway Activity</h2>
+      <div id="logs" class="empty">
+        Waiting for gateway events...
+      </div>
+    </section>
+
+    <footer>
+      Auto-refreshes every 2 seconds · Local monitoring dashboard
+      <div id="updated" style="margin-top:8px"></div>
+    </footer>
+  </main>
+
+  <script>
+    const fmt = n =>
+      Number(n || 0).toLocaleString();
+
+    const bytes = n => {
+      n = Number(n || 0);
+
+      if (n < 1024) return n + " B";
+      if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+
+      return (n / 1048576).toFixed(1) + " MB";
+    };
+
+    // Safely render event text without interpreting HTML.
+    function renderLogs(events) {
+      const logs = document.getElementById("logs");
+      logs.replaceChildren();
+
+      if (!events || events.length === 0) {
+        logs.textContent = "No gateway events yet.";
+        logs.classList.add("empty");
+        return;
+      }
+
+      logs.classList.remove("empty");
+
+      events.forEach(event => {
+        const line = document.createElement("div");
+        line.textContent = event;
+        logs.appendChild(line);
+      });
+    }
+
+    async function refresh() {
+      const connection =
+        document.getElementById("connection");
+
+      try {
+        const response = await fetch(
+          "/api/status?t=" + Date.now(),
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error("API returned " + response.status);
+        }
+
+        const d = await response.json();
+
+        document.getElementById("total").textContent =
+          fmt(d.total);
+
+        document.getElementById("active").textContent =
+          fmt(d.active);
+
+        document.getElementById("healthy").textContent =
+          fmt(d.healthy) + " / " + d.backends.length;
+
+        document.getElementById("bytes").textContent =
+          bytes(d.bytes);
+
+        const tbody = document.getElementById("servers");
+        tbody.replaceChildren();
+
+        d.backends.forEach(b => {
+          const row = document.createElement("tr");
+
+          const values = [
+            b.name,
+            `${b.host}:${b.port}`
+          ];
+
+          values.forEach(value => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.appendChild(cell);
+          });
+
+          const statusCell = document.createElement("td");
+          const badge = document.createElement("span");
+
+          badge.className = "pill " + (b.up ? "up" : "down");
+          badge.textContent = b.up ? "● UP" : "● DOWN";
+
+          statusCell.appendChild(badge);
+          row.appendChild(statusCell);
+
+          const connectionsCell = document.createElement("td");
+          connectionsCell.textContent = fmt(b.connections);
+          row.appendChild(connectionsCell);
+
+          const bytesCell = document.createElement("td");
+          bytesCell.textContent = bytes(b.bytes);
+          row.appendChild(bytesCell);
+
+          tbody.appendChild(row);
+        });
+
+        renderLogs(d.events || []);
+
+        connection.textContent = "Live";
+        connection.style.color = "#65e6b4";
+
+        document.getElementById("updated").textContent =
+          "Last updated: " + new Date().toLocaleTimeString();
+
+      } catch (error) {
+        connection.textContent = "Disconnected";
+        connection.style.color = "#ff8d9e";
+
+        document.getElementById("updated").textContent =
+          "Unable to fetch gateway status. Check gateway.py.";
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
